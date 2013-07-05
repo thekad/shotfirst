@@ -94,7 +94,19 @@ class ImportHandler(pyinotify.ProcessEvent):
             dtime = datetime.fromtimestamp(ctime)
         except:
             logging.error('Could not fetch timestamp for %s, skipping' % (
-                           fullpath))
+                          fullpath))
+            return False
+        return dtime
+
+    def handle_pdf(self, fullpath, config):
+        from pyPdf import PdfFileReader
+        r = PdfFileReader(open(fullpath, 'rb'))
+        try:
+            dtime = r.documentInfo['/CreationDate'][:14]
+            dtime = datetime.strptime(dtime, 'D:%Y%m%d%H%M')
+        except:
+            logging.error('Could not fetch timestamp for %s, skipping' % (
+                          fullpath))
             return False
         return dtime
 
@@ -107,7 +119,7 @@ class ImportHandler(pyinotify.ProcessEvent):
             dtime = datetime.strptime(dtime, '%Y:%m:%d %H:%M:%S')
         except:
             logging.error('Could not fetch timestamp for %s, skipping' % (
-                           fullpath))
+                          fullpath))
             return False
         return dtime
 
@@ -138,8 +150,9 @@ class ImportHandler(pyinotify.ProcessEvent):
         if not dtime:
             return False
         logging.debug('Timestamp for %s is %s' % (
-                       os.path.basename(orig_file), dtime,))
-        fsubdir = os.path.join(config['target'], dtime.strftime(config['mask']))
+                      os.path.basename(orig_file), dtime,))
+        fsubdir = os.path.join(config['target'],
+                               dtime.strftime(config['mask']))
         dest_file = os.path.join(fsubdir, fname)
         if os.path.exists(dest_file):
             logging.debug('Destination file %s already exists, comparing' % (
@@ -164,7 +177,8 @@ class ImportHandler(pyinotify.ProcessEvent):
             os.makedirs(fsubdir)
         operation = getattr(shutil, config['operation'])
         #operation(orig_file, dest_file)
-        logging.info('Imported %s -> %s (via %s)' % (orig_file, dest_file, operation.__name__))
+        logging.info('Imported %s -> %s (via %s)' %
+                     (orig_file, dest_file, operation.__name__))
 
 
 def import_file(handler, filename, filedir, log):
