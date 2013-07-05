@@ -1,90 +1,70 @@
 #!/usr/bin/env python
 import argparse
 from datetime import datetime
-from gi.repository import GExiv2
-from gi.repository import Gio
 import hashlib
+import json
 import logging
 import mimetypes
 import os
+from PIL import Image
 import pyinotify
 from Queue import Queue
 import shutil
 import sys
-from traceback import format_exc
 from threading import Thread
-
-GSETTINGS = Gio.Settings('org.yorba.shotwell.preferences.files')
-
-DEFAULT_MASK = GSETTINGS.get_string('directory-pattern') or \
-       GSETTINGS.get_string('directory-pattern-custom')
-
-DEFAULT_MIME_TYPES = [
-    'image/gif',
-    'image/jpeg',
-]
+from traceback import format_exc
 
 # Default number of importers
 DEFAULT_THREADS = 4
 
-
-class ConsoleHandler(logging.StreamHandler):
-    """A handler that logs to console in the sensible way.
-
-    StreamHandler can log to *one of* sys.stdout or sys.stderr.
-
-    It is more sensible to log to sys.stdout by default with only error
-    (logging.ERROR and above) messages going to sys.stderr. This is how
-    ConsoleHandler behaves.
-    """
-
-    def __init__(self):
-        logging.StreamHandler.__init__(self)
-        self.stream = None # reset it; we are not going to use it anyway
-
-    def emit(self, record):
-        if record.levelno >= logging.ERROR:
-            self.__emit(record, sys.stderr)
-        else:
-            self.__emit(record, sys.stdout)
-
-    def __emit(self, record, strm):
-        self.stream = strm
-        logging.StreamHandler.emit(self, record)
-
-    def flush(self):
-        # Workaround a bug in logging module
-        # See:
-        #   http://bugs.python.org/issue6333
-        if self.stream and hasattr(self.stream, 'flush') and not self.stream.closed:
-            logging.StreamHandler.flush(self)
-
-
-LOGGER = logging.getLogger('shotfirst')
-LOGGER.setLevel(logging.DEBUG)
-handler = ConsoleHandler()
 if os.environ.get('SDEBUG', False):
-    handler.setLevel(logging.DEBUG)
+    level = logging.DEBUG
 else:
-    handler.setLevel(logging.INFO)
-format = '%(asctime)s %(levelname)s %(name)s %(message)s'
-formatter = logging.Formatter(format)
-handler.setFormatter(formatter)
-LOGGER.addHandler(handler)
+    level = logging.INFO
+
+logging.basicConfig(level=level, datefmt='%Y-%m-%d %H:%M:%S',
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class ImportHandler(pyinotify.ProcessEvent):
-    def my_init(self, threads=DEFAULT_THREADS, target_dir=None,
-                log=LOGGER, watch_dirs=[], operation='move',
-                mime_types=DEFAULT_MIME_TYPES, prune=False,
-                mask=DEFAULT_MASK):
 
-        self.target = target_dir
-        self.log = log
+    config = {}
+
+    def _make_conf(self, vals):
+        values = vals.copy()
+        if 'mask' not in values:
+            values['mask'] = ''
+        if 'operation' not in values:
+            values['operation'] = 'move'
+        if 'handler' in values:
+            if values['handler'] in dir(self):
+                values['handler'] = getattr(self, values['handler'])
+            else:
+                raise NotImplementedError('Handler %(handler)s '
+                                          'is not implemented' % values)
+        else:
+            values['handler'] = self.handle_simple_file
+
+        return values
+
+    def my_init(self, config, threads=DEFAULT_THREADS):
+
+        cfg = config.copy()
+        for keys, values in cfg.items():
+            assert 'target' in values, 'Each item in the config must '\
+                'have a target declared'
+            if len(keys.split(',')) > 1:
+                for key in keys.split(','):
+                    logging.debug('Loading %s' % key.strip())
+                    k = key.strip()
+                    cfg[k] = self._make_conf(values)
+                cfg.pop(keys)
+            else:
+                logging.debug('Loading %s' % keys.strip())
+                cfg[keys] = self._make_conf(values)
+        self.config = cfg
+        logging.debug(self.config)
         self.fileq = Queue()
-        self.mime_types = mime_types
-        self.prune = prune
-        self.op = getattr(shutil, operation)
 
         for i in range(int(threads)):
             t = Thread(target=self.worker)
@@ -95,10 +75,10 @@ class ImportHandler(pyinotify.ProcessEvent):
         while True:
             f = self.fileq.get()
             try:
-                self.import_image(f)
+                self.import_file(f)
             except:
-                self.log.error('Failed importing %s.\n%s' %
-                               (f, format_exc()))
+                logging.error('Failed importing %s.\n%s' %
+                              (f, format_exc()))
 
             self.fileq.task_done()
 
@@ -108,75 +88,90 @@ class ImportHandler(pyinotify.ProcessEvent):
     def process_IN_MOVED_TO(self, event):
         self.add_file(event.pathname)
 
-    def get_datetime(self, fullpath):
-        exif = GExiv2.Metadata()
-        exif.open_path(fullpath)
-        dtime = None
+    def handle_simple_file(self, fullpath, config):
         try:
-            dtime = exif.get_date_time()
-            self.log.debug('Timestamp string is %s' % (dtime,))
-            dtime = datetime.strptime(dtime, '%Y:%m:%d %H:%M:%S')
+            ctime = os.path.getmtime(fullpath)
+            dtime = datetime.fromtimestamp(ctime)
         except:
-            self.log.error('Could not fetch timestamp for %s, skipping' % (
+            logging.error('Could not fetch timestamp for %s, skipping' % (
                            fullpath))
             return False
-        self.log.debug('Timestamp for %s is %s' % (
-                       os.path.basename(fullpath), dtime,))
+        return dtime
+
+    def handle_exif_image(self, fullpath, config):
+        image = Image.open(fullpath)
+        exif = image._getexif()
+        dtime = None
+        try:
+            dtime = exif[0x9003]
+            dtime = datetime.strptime(dtime, '%Y:%m:%d %H:%M:%S')
+        except:
+            logging.error('Could not fetch timestamp for %s, skipping' % (
+                           fullpath))
+            return False
         return dtime
 
     def add_file(self, fullpath):
-        self.log.debug('Analyzing %s for inclusion...' % (fullpath,))
+        logging.debug('Analyzing %s for inclusion...' % (fullpath,))
         try:
             (f_type, f_encoding) = mimetypes.guess_type(fullpath)
-            self.log.debug('%s is %s' % (fullpath, f_type,))
-            if f_type in self.mime_types:
-                self.log.info('Will import %s (via %s)' % (
-                              fullpath, self.op.__name__))
+            logging.debug('%s is %s' % (fullpath, f_type,))
+            if f_type in self.config:
                 self.fileq.put(fullpath)
-        except:
-            self.log.debug('Could not guess mime type for %s!' % (fullpath,))
+            else:
+                raise ValueError('Invalid or not-configured mime-type %s' %
+                                (f_type,))
+        except Exception as e:
+            logging.warn('Error adding %s! %s' % (fullpath, e))
             return
 
-    def import_image(self, orig_file):
-        dtime = self.get_datetime(orig_file)
+    def _get_config(self, orig_file):
+        (f_type, f_encoding) = mimetypes.guess_type(orig_file)
+        cfg = self.config[f_type]
+        logging.debug(cfg)
+        return self.config[f_type]
+
+    def import_file(self, orig_file):
+        fname = os.path.basename(orig_file).lower()
+        config = self._get_config(orig_file)
+        dtime = config['handler'](orig_file, config)
         if not dtime:
             return False
-        fname = os.path.basename(orig_file).lower()
-        fsubdir = '%s/%s' % (self.target, dtime.strftime('%Y/%m/%d'),)
-        dest_file = '%s/%s' % (fsubdir, fname)
+        logging.debug('Timestamp for %s is %s' % (
+                       os.path.basename(orig_file), dtime,))
+        fsubdir = os.path.join(config['target'], dtime.strftime(config['mask']))
+        dest_file = os.path.join(fsubdir, fname)
         if os.path.exists(dest_file):
-            self.log.debug('Destination file %s already exists, comparing' % (
-                           dest_file,))
+            logging.debug('Destination file %s already exists, comparing' % (
+                          dest_file,))
             dest_md5 = hashlib.md5(open(dest_file).read()).hexdigest()
             orig_md5 = hashlib.md5(open(orig_file).read()).hexdigest()
-            self.log.debug('%s == %s ? %s' % (dest_md5, orig_md5,
-                           dest_md5 == orig_md5))
+            logging.debug('%s == %s ? %s' % (dest_md5, orig_md5,
+                          dest_md5 == orig_md5))
             if dest_md5 == orig_md5:
-                if self.prune:
-                    self.log.warn('File already exists, deleting file being '
-                                  'imported to avoid this problem in the '
-                                  'future')
-                    os.unlink(orig_file)
-                else:
-                    self.log.warn('File %s already exists' % (dest_file,))
+                logging.warn('File already exists, deleting file being '
+                             'imported to avoid this problem in the '
+                             'future')
+                #os.unlink(orig_file)
                 return
             else:
-                self.log.warn('A file with the same name (%s) exists, but '
-                              'it seems different. Will leave them alone' % (
-                              os.path.basename(dest_file)))
+                logging.warn('A file with the same name (%s) exists, but '
+                             'it seems different. Will leave them alone' % (
+                             os.path.basename(dest_file)))
                 return
 
         if not os.path.isdir(fsubdir):
             os.makedirs(fsubdir)
-        self.op(orig_file, dest_file)
-        self.log.info('Imported %s -> %s' % (orig_file, dest_file,))
+        operation = getattr(shutil, config['operation'])
+        #operation(orig_file, dest_file)
+        logging.info('Imported %s -> %s (via %s)' % (orig_file, dest_file, operation.__name__))
 
 
 def import_file(handler, filename, filedir, log):
     if not filedir.endswith('/'):
         filedir += '/'
 
-    fullpath = os.path.abspath('%s%s' % (filedir, filename))
+    fullpath = os.path.realpath('%s%s' % (filedir, filename))
 
     if os.path.isdir(fullpath):
         return
@@ -192,9 +187,9 @@ def get_mask(listen_events=['IN_MOVED_TO', 'IN_CLOSE_WRITE']):
     return mask
 
 
-def import_files(handler, paths, recurse, log=LOGGER):
+def import_files(handler, paths, recurse, log=logging):
     for path in paths:
-        log.info('Import from %s' % path)
+        logging.info('Import from %s' % path)
         if recurse:
             for root, dirs, files in os.walk(path):
                 for filename in files:
@@ -205,35 +200,31 @@ def import_files(handler, paths, recurse, log=LOGGER):
     return 0
 
 
+def load_config(config):
+    jsonf = json.loads(open(config, 'rb').read())
+    return jsonf
+
+
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Tablesnap is a script that')
-    parser.add_argument('--target', help='Destination folder', required=True,
-                        default=GSETTINGS.get_string('import-dir'))
-    parser.add_argument('--import-mask', help='Target import mask',
-                        default=DEFAULT_MASK)
-    parser.add_argument('paths', metavar='path', nargs='+',
-                        help='Paths to be watched')
-    parser.add_argument('--threads', default=DEFAULT_THREADS,
+        description='Monitor a given number of dropboxes for files')
+    parser.add_argument('-t', '--threads', default=DEFAULT_THREADS,
                         help='Default number of worker threads to create')
     parser.add_argument('--no-auto-add', action='store_true', default=False,
                         help='Do not automatically watch sub-directories')
     parser.add_argument('--no-recurse', action='store_true', default=False,
                         help='Do not recurse')
-    parser.add_argument('--prune', action='store_true', default=False,
-                        help='Prune duplicated files from source(s)')
-    parser.add_argument('--copy', action='store_const', dest='operation',
-                        default='move', const='copy',
-                        help='Copy files instead of moving them.')
+    parser.add_argument('-c', '--config', required=True,
+                        help='JSON configuration file')
+    parser.add_argument('paths', metavar='path', nargs='+',
+                        help='Director(y|ies) to watch')
     args = parser.parse_args()
 
-    LOGGER.info('Starting up')
+    logging.info('Starting up')
 
-
-    handler = ImportHandler(threads=args.threads, watch_dirs=args.paths,
-                            target_dir=args.target, prune=args.prune,
-                            operation=args.operation, mask=args.import_mask)
+    handler = ImportHandler(threads=args.threads,
+                            config=load_config(args.config))
 
     wm = pyinotify.WatchManager()
     notifier = pyinotify.Notifier(wm, handler)
@@ -243,8 +234,8 @@ def main():
         ret = wm.add_watch(path, mask, rec=not args.no_recurse,
                            auto_add=not args.no_auto_add)
         if ret[path] == -1:
-            LOGGER.critical('add_watch failed for %s, bailing out!' %
-                                (path))
+            logging.critical('add_watch failed for %s, bailing out!' %
+                             (path))
             return 1
 
     import_files(handler, args.paths, not args.no_recurse)
