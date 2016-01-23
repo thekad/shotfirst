@@ -1,10 +1,18 @@
 #!/usr/bin/env python
+# -*- mode:python; sh-basic-offset:4; indent-tabs-mode:nil; coding:utf-8 -*-
+# vim:set tabstop=4 softtabstop=4 expandtab shiftwidth=4 fileencoding=utf-8:
+#
+"""
+Monitors a "drop box" location for new files to copy or move them
+"""
+
 import argparse
 from datetime import datetime
 import hashlib
 import json
 import logging
 import mimetypes
+import multiprocessing
 import os
 from PIL import Image
 import pyinotify
@@ -14,8 +22,10 @@ import sys
 from threading import Thread
 from traceback import format_exc
 
+__version__ = '0.1'
+
 # Default number of importers
-DEFAULT_THREADS = 4
+DEFAULT_THREADS = multiprocessing.cpu_count()
 
 if os.environ.get('SDEBUG', False):
     level = logging.DEBUG
@@ -131,8 +141,11 @@ class ImportHandler(pyinotify.ProcessEvent):
             if f_type in self.config:
                 self.fileq.put(fullpath)
             else:
-                raise ValueError('Invalid or not-configured mime-type %s' %
-                                (f_type,))
+                raise ValueError(
+                    'Invalid or not-configured mime-type %s' % (
+                        f_type,
+                    )
+                )
         except Exception as e:
             logging.warn('Error adding %s! %s' % (fullpath, e))
             return
@@ -162,8 +175,11 @@ class ImportHandler(pyinotify.ProcessEvent):
             logging.debug('%s == %s ? %s' % (dest_md5, orig_md5,
                           dest_md5 == orig_md5))
             if dest_md5 == orig_md5:
-                logging.warn('File %s already exists, unlinking to avoid this' %
-                             (os.path.basename(dest_file)))
+                logging.warn(
+                    'File %s already exists, unlinking to avoid this' % (
+                        os.path.basename(dest_file)
+                    )
+                )
                 os.unlink(orig_file)
             else:
                 logging.warn('A file with the same name (%s) exists, but '
