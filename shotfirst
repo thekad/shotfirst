@@ -162,21 +162,18 @@ class ImportHandler(pyinotify.ProcessEvent):
             logging.debug('%s == %s ? %s' % (dest_md5, orig_md5,
                           dest_md5 == orig_md5))
             if dest_md5 == orig_md5:
-                logging.warn('File already exists, deleting file being '
-                             'imported to avoid this problem in the '
-                             'future')
-                #os.unlink(orig_file)
-                return
+                logging.warn('File %s already exists, unlinking to avoid this' %
+                             (os.path.basename(dest_file)))
+                os.unlink(orig_file)
             else:
                 logging.warn('A file with the same name (%s) exists, but '
-                             'it seems different. Will leave them alone' % (
-                             os.path.basename(dest_file)))
-                return
+                             'it seems different.' % (dest_file,))
+            return
 
         if not os.path.isdir(fsubdir):
             os.makedirs(fsubdir)
         operation = getattr(shutil, config['operation'])
-        #operation(orig_file, dest_file)
+        operation(orig_file, dest_file)
         logging.info('Imported %s -> %s (via %s)' %
                      (orig_file, dest_file, operation.__name__))
 
