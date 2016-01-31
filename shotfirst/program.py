@@ -151,7 +151,10 @@ class ImportHandler(pyinotify.ProcessEvent):
             return
 
         if not os.path.isdir(fsubdir):
-            os.makedirs(fsubdir)
+            try:
+                os.makedirs(fsubdir)
+            except Exception as e:
+                logging.debug(e)
         operation = getattr(shutil, config['operation'])
         operation(orig_file, dest_file)
         logging.info('Imported %s -> %s (via %s)' %
