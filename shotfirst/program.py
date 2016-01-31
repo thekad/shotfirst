@@ -23,17 +23,6 @@ from traceback import format_exc
 # Default number of importers
 DEFAULT_THREADS = multiprocessing.cpu_count()
 
-if os.environ.get('SDEBUG', False):
-    level = logging.DEBUG
-else:
-    level = logging.INFO
-
-logging.basicConfig(
-    level=level, datefmt='%Y-%m-%d %H:%M:%S',
-    format='%(asctime)s - %(threadName)s - %(filename)s:%(lineno)s '
-    '- %(levelname)s - %(message)s'
-)
-
 
 class ImportHandler(pyinotify.ProcessEvent):
 
@@ -210,6 +199,17 @@ def load_config(config):
 
 
 def main():
+    if os.environ.get('SDEBUG', False):
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+
+    logging.basicConfig(
+        level=level, datefmt='%Y-%m-%d %H:%M:%S',
+        format='%(asctime)s - %(threadName)s '
+        '- %(levelname)s - %(message)s'
+    )
+
     import argparse
 
     parser = argparse.ArgumentParser(
