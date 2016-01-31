@@ -47,17 +47,43 @@ def exif_image_handler(fullpath, **kwargs):
     logging.debug('Handling %s as an EXIF image' % (fullpath, ))
 
     from PIL import Image
-    image = Image.open(fullpath)
-    exif = image._getexif()
-    dtime = exif.get(0x9003)
+
+    dtime = None
+    try:
+        image = Image.open(fullpath)
+        exif = image._getexif()
+        dtime = exif.get(0x9003)
+    except Exception as e:
+        logging.debug(e)
 
     if dtime is None:
         logging.error(
-            'Could not fetch timestamp for %s, skipping' % (
+            'Could not read EXIF metadata from %s, falling back '
+            'to simple_file_handler' % (
                 fullpath
             )
         )
-        return False
-    logging.info(dtime)
+        return simple_file_handler(fullpath, **kwargs)
     dtime = datetime.strptime(dtime, '%Y:%m:%d %H:%M:%S')
     return dtime
+
+
+def video_handler(fullpath, **kwargs):
+    logging.debug('Handling %s as a video file' % (fullpath, ))
+
+    from enzyme import MKV
+
+    try:
+        with open(fullpath, 'rb') as fh:
+            mkv = MKV(fh)
+    except Exception as e:
+        logging.debug(e)
+        logging.error(
+            'Could not read Video metadata from %s, falling back '
+            'to simple_file_handler' % (
+                fullpath
+            )
+        )
+        return simple_file_handler(fullpath, **kwargs)
+
+    return mkv.info.date_utc
