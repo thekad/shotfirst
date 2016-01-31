@@ -22,15 +22,20 @@ def simple_file_handler(fullpath, **kwargs):
 
 def pdf_file_handler(fullpath, **kwargs):
     logging.debug('Handling %s as a PDF file' % (fullpath, ))
-    from pyPdf import PdfFileReader
-    r = PdfFileReader(open(fullpath, 'rb'))
+
+    from pdfrw import PdfReader
+    r = PdfReader(fullpath)
     try:
-        dtime = r.documentInfo['/CreationDate'][:14]
-        dtime = datetime.strptime(dtime, 'D:%Y%m%d%H%M')
-    except:
+        # Why do PDFs have such a weird timestamp format?
+        # example from a random PDF: (D:20131222010843-06'00')
+        # grabbing only what we need up to seconds, no TZ
+        dtime = r.Info.CreationDate[3:17]
+        dtime = datetime.strptime(dtime, '%Y%m%d%H%M%S')
+    except Exception as e:
+        logging.debug(e)
         logging.error(
-            'Could not fetch PDF metadata for %s, falling back '
-            'to simple file handler' % (
+            'Could not read PDF metadata from %s, falling back '
+            'to simple_file_handler' % (
                 fullpath
             )
         )
