@@ -109,7 +109,7 @@ class ImportHandler(pyinotify.ProcessEvent):
         return f_type, self.config[f_type]
 
     def import_file(self, orig_file):
-        fname = os.path.basename(orig_file).lower()
+        fname = os.path.basename(orig_file)
         mime_type, config = self._get_config(orig_file)
         dtime = config['handler'](orig_file, config=config)
         if not dtime:
