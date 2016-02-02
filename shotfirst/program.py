@@ -51,19 +51,14 @@ class ImportHandler(pyinotify.ProcessEvent):
 
     def my_init(self, config, threads=DEFAULT_THREADS):
 
-        cfg = config.copy()
-        for keys, values in cfg.items():
+        cfg = {}
+        for keys, values in config.items():
             assert 'target' in values, 'Each item in the config must '\
                 'have a target declared'
-            if len(keys.split(',')) > 1:
-                for key in keys.split(','):
-                    logging.debug('Loading %s' % key.strip())
-                    k = key.strip()
-                    cfg[k] = self._make_conf(values)
-                cfg.pop(keys)
-            else:
-                logging.debug('Loading %s' % keys.strip())
-                cfg[keys] = self._make_conf(values)
+            for key in keys.split(','):
+                logging.debug('Loading %s' % key.strip())
+                k = key.strip()
+                cfg[k] = self._make_conf(values)
         self.config = cfg
         logging.debug(self.config)
         self.fileq = Queue()
