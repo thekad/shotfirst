@@ -130,8 +130,8 @@ class ImportHandler(pyinotify.ProcessEvent):
                 msg = 'File %s was already processed. ' % (
                     orig_file,
                 )
-                if config['operation'] == 'copy':
-                    msg += 'Leaving alone because operation is "copy" '
+                if config['operation'] == 'copy2':
+                    msg += 'Leaving alone because operation is "copy2" '
                 elif config['operation'] == 'move':
                     msg += 'Removing source file to '\
                         'avoid this because operation is "move" '
