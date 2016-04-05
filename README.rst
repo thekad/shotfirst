@@ -7,7 +7,7 @@ find all the files in the directories and execute ``shutil`` operations on them
 (by default ``copy2`` which means the file is copied along with the metadata)
 to the configured location.
 
-An example of the configuration file::
+For example, with the following configuration file::
 
     {
       "image/jpeg, image/gif, image/png": {
@@ -17,6 +17,7 @@ An example of the configuration file::
       },
       "video/webm": {
         "target": "/tmp/foo/videos",
+        "operation": "move",
         "mask": "%Y/%m/%d",
         "handler": "shotfirst.handlers.video_handler"
       },
@@ -26,3 +27,16 @@ An example of the configuration file::
         "mask": "%Y/%m"
       }
     }
+
+``shotfirst`` will:
+
+#.  Copy all GIF, JPEG, and PNG images found in the given folders to a
+    directory ``/tmp/foo/pics`` and will use the EXIF metadata from the image
+    to figure out the sub-folder structure (which is year/month/day)
+#.  Move all the WebM videos in the given folders to a directory named
+    ``/tmp/foo/videos`` based on the video metadata, if available. Otherwise
+    will fall back to the file system meta data.
+#.  Copy all PDF files in the given folders to a directory ``/tmp/foo/docs``
+    based on the PDF metadata if available. Fall back to the file system meta
+    data if not.
+
