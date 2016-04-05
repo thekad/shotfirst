@@ -6,10 +6,9 @@
 import os
 import setuptools
 import shotfirst
-import sys
 
 
-readme = os.path.join(os.path.dirname(sys.argv[0]), 'README.rst')
+readme = os.path.join(os.path.dirname(__file__), 'README.rst')
 install_requires = [
     'pyinotify',  # To monitor directories
     'pdfrw',  # For PDF
