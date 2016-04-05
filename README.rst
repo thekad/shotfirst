@@ -7,9 +7,8 @@ find all the files in the directories and execute ``shutil`` operations on them
 (by default ``copy2`` which means the file is copied along with the metadata)
 to the configured location.
 
-An example of the configuration file:
+An example of the configuration file::
 
-```json
     {
       "image/jpeg, image/gif, image/png": {
         "mask": "%Y/%m/%d",
@@ -27,5 +26,3 @@ An example of the configuration file:
         "mask": "%Y/%m"
       }
     }
-```
-
