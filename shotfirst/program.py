@@ -33,7 +33,7 @@ class ImportHandler(pyinotify.ProcessEvent):
         if 'mask' not in values:
             values['mask'] = ''
         if 'operation' not in values:
-            values['operation'] = 'copy'
+            values['operation'] = 'copy2'
         if 'handler' in values:
             m = values['handler']
         else:
