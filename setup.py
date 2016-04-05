@@ -11,10 +11,10 @@ import sys
 
 readme = os.path.join(os.path.dirname(sys.argv[0]), 'README.rst')
 install_requires = [
+    'pyinotify',  # To monitor directories
     'pdfrw',  # For PDF
     'Pillow',  # For EXIF metadata
     'enzyme',  # For Videos
-    'pyinotify'
 ]
 
 setuptools.setup(
