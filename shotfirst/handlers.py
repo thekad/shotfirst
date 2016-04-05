@@ -20,7 +20,7 @@ def simple_file_handler(fullpath, **kwargs):
     return dtime
 
 
-def pdf_file_handler(fullpath, **kwargs):
+def pdf_handler(fullpath, **kwargs):
     logging.debug('Handling %s as a PDF file' % (fullpath, ))
 
     from pdfrw import PdfReader
@@ -55,8 +55,6 @@ def exif_image_handler(fullpath, **kwargs):
         dtime = exif.get(0x9003)
     except Exception as e:
         logging.debug(e)
-
-    if dtime is None:
         logging.error(
             'Could not read EXIF metadata from %s, falling back '
             'to simple_file_handler' % (
