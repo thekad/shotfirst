@@ -249,7 +249,8 @@ def main():
 
     mask = get_mask()
     for path in args.paths:
-        ret = wm.add_watch(path, mask, rec=not args.no_recurse,
+        ret = wm.add_watch(os.path.expanduser(path), mask,
+                           rec=not args.no_recurse,
                            auto_add=not args.no_auto_add)
         if ret[path] == -1:
             logging.critical(
