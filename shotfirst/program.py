@@ -116,7 +116,7 @@ class ImportHandler(pyinotify.ProcessEvent):
             return False
         logging.debug('Timestamp for %s is %s' % (
                       os.path.basename(orig_file), dtime,))
-        fsubdir = os.path.join(config['target'],
+        fsubdir = os.path.join(os.path.expanduser(config['target']),
                                dtime.strftime(config['mask']))
         dest_file = os.path.join(fsubdir, fname)
         if os.path.exists(dest_file):
