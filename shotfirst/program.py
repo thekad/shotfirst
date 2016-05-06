@@ -5,6 +5,7 @@
 
 import shotfirst
 
+import fnmatch
 import hashlib
 import importlib
 import json
@@ -30,14 +31,20 @@ class ImportHandler(pyinotify.ProcessEvent):
 
     def _make_conf(self, vals):
         values = vals.copy()
+
         if 'mask' not in values:
             values['mask'] = ''
+
         if 'operation' not in values:
             values['operation'] = 'copy2'
+
         if 'handler' in values:
             m = values['handler']
         else:
             m = 'shotfirst.handlers.simple_file_handler'
+
+        values['excludes'] = values.get('excludes', [])
+
         try:
             mod = importlib.import_module('.'.join(m.split('.')[:-1]))
             method = getattr(mod, m.split('.')[-1])
@@ -45,6 +52,7 @@ class ImportHandler(pyinotify.ProcessEvent):
             raise NotImplementedError(
                 'Handler %s is not implemented' % (m,)
             )
+
         values['handler'] = method
 
         return values
@@ -91,7 +99,15 @@ class ImportHandler(pyinotify.ProcessEvent):
             (f_type, f_encoding) = mimetypes.guess_type(fullpath)
             logging.debug('%s is %s' % (fullpath, f_type,))
             if f_type in self.config:
-                self.fileq.put(fullpath)
+                for exclude in self.config[f_type]['excludes']:
+                    logging.debug('Comparing %s against %s' % (
+                        fullpath, exclude,
+                    ))
+                    if fnmatch.fnmatch(fullpath, exclude):
+                        logging.info('Excluding %s...' % (fullpath,))
+                        return
+                    else:
+                        self.fileq.put(fullpath)
             else:
                 raise ValueError(
                     'Invalid or not-configured mime-type %s' % (
