@@ -14,7 +14,7 @@ import mimetypes
 import multiprocessing
 import os
 import pyinotify
-from Queue import Queue
+from queue import Queue
 import shutil
 import sys
 from threading import Thread
@@ -60,7 +60,7 @@ class ImportHandler(pyinotify.ProcessEvent):
     def my_init(self, config, threads=DEFAULT_THREADS):
 
         cfg = {}
-        for keys, values in config.items():
+        for keys, values in list(config.items()):
             assert 'target' in values, 'Each item in the config must '\
                 'have a target declared'
             for key in keys.split(','):
