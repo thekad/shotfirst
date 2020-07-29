@@ -3,5 +3,5 @@
 # vim:set tabstop=4 softtabstop=4 expandtab shiftwidth=4 fileencoding=utf-8:
 #
 
-__version__ = '0.1'
-__doc__ = 'Monitor a given number of dropboxes for files'
+__version__ = "0.1"
+__doc__ = "Monitor a given number of dropboxes for files"

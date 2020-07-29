@@ -8,43 +8,41 @@ import logging
 import os
 
 
-def simple_file_handler(fullpath, **kwargs):
-    logging.debug('Handling %s as a simple file' % (fullpath, ))
+def file_handler(fullpath, **kwargs):
+    logging.debug("Handling %s as a simple file" % (fullpath,))
     try:
         mtime = os.path.getmtime(fullpath)
         dtime = datetime.fromtimestamp(mtime)
-    except:
-        logging.error('Could not fetch timestamp for %s, skipping' % (
-                      fullpath))
+    except Exception as e:
+        logging.error("Could not fetch timestamp for %s (), skipping" % (e, fullpath))
         return False
     return dtime
 
 
 def pdf_handler(fullpath, **kwargs):
-    logging.debug('Handling %s as a PDF file' % (fullpath, ))
+    logging.debug("Handling %s as a PDF file" % (fullpath,))
 
     from pdfrw import PdfReader
+
     r = PdfReader(fullpath)
     try:
         # Why do PDFs have such a weird timestamp format?
         # example from a random PDF: (D:20131222010843-06'00')
         # grabbing only what we need up to seconds, no TZ
         dtime = r.Info.CreationDate[3:17]
-        dtime = datetime.strptime(dtime, '%Y%m%d%H%M%S')
+        dtime = datetime.strptime(dtime, "%Y%m%d%H%M%S")
     except Exception as e:
         logging.debug(e)
         logging.error(
-            'Could not read PDF metadata from %s, falling back '
-            'to simple_file_handler' % (
-                fullpath
-            )
+            "Could not read PDF metadata from %s, falling back "
+            "to file_handler" % (fullpath)
         )
-        return simple_file_handler(fullpath, **kwargs)
+        return file_handler(fullpath, **kwargs)
     return dtime
 
 
-def exif_image_handler(fullpath, **kwargs):
-    logging.debug('Handling %s as an EXIF image' % (fullpath, ))
+def exif_handler(fullpath, **kwargs):
+    logging.debug("Handling %s as an EXIF image" % (fullpath,))
 
     from PIL import Image
 
@@ -55,33 +53,29 @@ def exif_image_handler(fullpath, **kwargs):
         dtime = exif.get(0x9003)
     except Exception as e:
         logging.debug(e)
-        logging.error(
-            'Could not read EXIF metadata from %s, falling back '
-            'to simple_file_handler' % (
-                fullpath
-            )
+        logging.warn(
+            "Could not read EXIF metadata from %s, falling back "
+            "to file_handler" % (fullpath)
         )
-        return simple_file_handler(fullpath, **kwargs)
-    dtime = datetime.strptime(dtime, '%Y:%m:%d %H:%M:%S')
+        return file_handler(fullpath, **kwargs)
+    dtime = datetime.strptime(dtime, "%Y:%m:%d %H:%M:%S")
     return dtime
 
 
 def video_handler(fullpath, **kwargs):
-    logging.debug('Handling %s as a video file' % (fullpath, ))
+    logging.debug("Handling %s as a video file" % (fullpath,))
 
     from enzyme import MKV
 
     try:
-        with open(fullpath, 'rb') as fh:
+        with open(fullpath, "rb") as fh:
             mkv = MKV(fh)
     except Exception as e:
         logging.debug(e)
         logging.error(
-            'Could not read Video metadata from %s, falling back '
-            'to simple_file_handler' % (
-                fullpath
-            )
+            "Could not read Video metadata from %s, falling back "
+            "to file_handler" % (fullpath)
         )
-        return simple_file_handler(fullpath, **kwargs)
+        return file_handler(fullpath, **kwargs)
 
     return mkv.info.date_utc

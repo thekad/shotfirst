@@ -1,0 +1,21 @@
+{
+  "image/jpeg, image/gif, image/png": {
+    "mask": "%Y/%m/%d",
+    "target": "/tmp/foo/pics",
+    "handler": "shotfirst.handlers.exif_handler",
+    "excludes": [
+      "*SAM_728*",
+      "*SAM_726*"
+    ]
+  },
+  "video/webm": {
+    "target": "/tmp/foo/videos",
+    "mask": "%Y/%m/%d",
+    "handler": "shotfirst.handlers.video_handler"
+  },
+  "application/pdf": {
+    "target": "/tmp/foo/docs",
+    "handler": "shotfirst.handlers.pdf_handler",
+    "mask": "%Y/%m"
+  }
+}

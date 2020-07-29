@@ -1,3 +1,7 @@
 --index-url https://pypi.python.org/simple/
 
+black
+pycodestyle
+flake8
+
 -e .
