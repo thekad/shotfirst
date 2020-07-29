@@ -7,7 +7,7 @@ WORKDIR /app
 ADD README.rst /app/
 ADD requirements.txt /app/
 ADD setup.py /app/
-ADD shotfirst /app/shotfirst
+ADD shotfirst /etc/shotfirst.json
 ADD shotfirst.json /app/config/
 
 VOLUME /app/config
@@ -40,4 +40,4 @@ RUN apk --no-cache --no-progress add dumb-init \
         tiff-dev
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["shotfirst", "/app/config/shotfirst.json", "/app/inbox"]
+CMD ["shotfirst", "/etc/shotfirst.json", "/app/inbox"]
