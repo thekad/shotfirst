@@ -11,8 +11,9 @@ to the configured location.
 Installing
 ==========
 
-Option 1: Clone this repo and ``pip install -r requirements.txt`` (bleeding edge)
-Option 2: Run ``pip install shotfirst`` (released)
+* Option 1: Clone this repo and ``pip install -r requirements.txt`` (bleeding
+  edge)
+* Option 2: Run ``pip install shotfirst`` (released)
 
 
 Configuration
@@ -57,12 +58,17 @@ Running in docker
 There's a published docker image, to run you will have to mount your
 configuration file and your input and output folders, for example::
 
-    docker run --rm -it -v `pwd`/myconfig:/etc/shotfirst.json -v `pwd`/input:/app/inbox:rw -v `pwd`/output:/app/outbox:rw thekad/shotfirst:latest
+    docker run --rm -it -v `pwd`/myconfig:/etc/shotfirst.json -v `pwd`/input:/inbox:rw -v `pwd`/output:/outbox:rw thekad/shotfirst:latest
 
 And adjust your configuration appropriately to output the files to
-subdirectories inside ``/app/outbox``.
+subdirectories under ``/outbox``.
 
 .. NOTE::
-   The input folder is statically set to ``/app/inbox``, but the output
-   folder(s) can be configured at will
+   Write permissions on the monitored volumes is only needed if you will be
+   moving files instead of just copying
+
+If you want to monitor multiple directories, you can mount them as volumes and
+then set the ``SDIRS`` environment variable, like this::
+
+    docker run --rm -it -v /opt/dropbox1:/inbox1 -v /opt/dropbox2:/inbox2 -e SDIRS="/inbox1 /inbox2" thekad/shotfirst:latest
 

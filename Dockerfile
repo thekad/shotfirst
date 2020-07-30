@@ -1,6 +1,9 @@
 FROM alpine:3
 
+# set to 1 when running for debugging output
 ENV SDEBUG=
+# set to a space-separated list of directories to monitor
+ENV SDIRS=/inbox
 
 WORKDIR /app
 
@@ -40,4 +43,4 @@ RUN apk --no-cache --no-progress add dumb-init \
         tiff-dev
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["shotfirst", "/etc/shotfirst.json", "/app/inbox"]
+CMD shotfirst /etc/shotfirst.json ${SDIRS}
