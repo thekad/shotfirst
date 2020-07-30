@@ -7,8 +7,8 @@ WORKDIR /app
 ADD README.rst /app/
 ADD requirements.txt /app/
 ADD setup.py /app/
-ADD shotfirst /etc/shotfirst.json
-ADD shotfirst.json /app/config/
+ADD shotfirst /app/shotfirst
+ADD shotfirst.json /etc/
 
 VOLUME /app/config
 VOLUME /app/inbox
